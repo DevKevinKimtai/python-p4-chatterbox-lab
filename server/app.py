@@ -1,8 +1,6 @@
-from flask import Flask, request, make_response, jsonify
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_migrate import Migrate
-from datetime import datetime
-
 from models import db, Message
 
 app = Flask(__name__)
@@ -12,10 +10,11 @@ app.json.compact = False
 
 CORS(app)
 db.init_app(app)
+migrate = Migrate(app, db) 
 
 @app.route('/messages', methods=['GET'])
 def get_messages():
-    messages = Message.query.order_by(Message.created_at).all()
+    messages = Message.query.order_by(Message.created_at.asc()).all()
     return jsonify([message.to_dict() for message in messages])
 
 @app.route('/messages', methods=['POST'])
@@ -31,18 +30,11 @@ def create_message():
 
 @app.route('/messages/<int:id>', methods=['PATCH'])
 def update_message(id):
-    message = Message.query.get(id)
-    if not message:
-        return jsonify({"error": "Message not found"}), 404
-
+    message = Message.query.get_or_404(id)
     data = request.get_json()
-    if "body" in data:
-        message.body = data["body"]
-        message.updated_at = datetime.utcnow()  # Ensure updated_at is set
-        db.session.commit()
-        return jsonify(message.to_dict()), 200
-
-    return jsonify({"error": "No body provided"}), 400
+    message.body = data['body']
+    db.session.commit()
+    return jsonify(message.to_dict())
 
 @app.route('/messages/<int:id>', methods=['DELETE'])
 def delete_message(id):
